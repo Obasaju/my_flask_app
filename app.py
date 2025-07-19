@@ -5,9 +5,9 @@ import uuid
 import os
 import boto3
 
-application = Flask(__name__)
-application.debug = True
-Scss(application, static_dir='static', asset_dir='assets')
+app = Flask(__name__)
+app.debug = True
+Scss(app, static_dir='static', asset_dir='assets')
 
 # Connect to DynamoDB
 dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
@@ -15,7 +15,7 @@ table = dynamodb.Table('Tasks')
 
 # ===== HTML Routes =====
 
-@application.route('/', methods=['POST', 'GET'])
+@app.route('/', methods=['POST', 'GET'])
 def index():
     if request.method == 'POST':
         content = request.form['content']
@@ -35,7 +35,7 @@ def index():
     tasks = response.get('Items', [])
     return render_template('index.html', tasks=tasks)
 
-@application.route('/edit/<string:id>', methods=['GET', 'POST'])
+@app.route('/edit/<string:id>', methods=['GET', 'POST'])
 def edit(id):
     if request.method == 'POST':
         new_content = request.form['task']
@@ -61,7 +61,7 @@ def edit(id):
         return "Task not found", 404
     return render_template('edit.html', task=task)
 
-@application.route('/delete/<string:id>')
+@app.route('/delete/<string:id>')
 def delete_task(id):
     table.delete_item(Key={'id': id})
     return redirect('/')
@@ -69,14 +69,14 @@ def delete_task(id):
 
 # ===== API Routes =====
 
-@application.route('/api/tasks', methods=['GET'])
+@app.route('/api/tasks', methods=['GET'])
 def api_get_tasks():
     response = table.scan()
     tasks = response.get('Items', [])
     tasks.sort(key=lambda x: x.get('created_at', ''), reverse=True)
     return jsonify(tasks)
 
-@application.route('/api/tasks/<string:id>', methods=['GET'])
+@app.route('/api/tasks/<string:id>', methods=['GET'])
 def api_get_task(id):
     response = table.get_item(Key={'id': id})
     task = response.get('Item')
@@ -84,7 +84,7 @@ def api_get_task(id):
         return jsonify(task)
     return jsonify({'error': 'Task not found'}), 404
 
-@application.route('/api/tasks', methods=['POST'])
+@app.route('/api/tasks', methods=['POST'])
 def api_create_task():
     data = request.get_json()
     task_content = data.get('task')
@@ -100,7 +100,7 @@ def api_create_task():
     table.put_item(Item=new_task)
     return jsonify(new_task), 201
 
-@application.route('/api/tasks/<string:id>', methods=['PUT'])
+@app.route('/api/tasks/<string:id>', methods=['PUT'])
 def api_update_task(id):
     data = request.get_json()
     task_content = data.get('task')
@@ -119,11 +119,11 @@ def api_update_task(id):
     updated = table.get_item(Key={'id': id}).get('Item')
     return jsonify(updated)
 
-@application.route('/api/tasks/<string:id>', methods=['DELETE'])
+@app.route('/api/tasks/<string:id>', methods=['DELETE'])
 def api_delete_task(id):
     table.delete_item(Key={'id': id})
     return jsonify({'message': 'Task deleted'})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
-    application.run(host='0.0.0.0', port=port, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=True)
